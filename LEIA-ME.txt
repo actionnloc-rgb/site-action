@@ -1,15 +1,21 @@
 ACTION FILM EQUIPMENT — CÓDIGO-FONTE
 
-Extraia o ZIP e abra index.html no navegador.
+Estrutura do projeto:
+- public/: arquivos do site público (index.html, styles.css, site.js, public-data.js, site-config.js, assets/) e do painel administrativo (admin.html, admin.js, admin.css)
+- server.js: servidor Node.js/Express para desenvolvimento local e preview (porta 3000)
+- public-config.js e api/site-config.js: geram window.ACTION_CONFIG a partir das variáveis de ambiente
+- .env.example: modelo das variáveis de ambiente para uso local ou na Vercel
+- firestore.rules e README-ADMIN.md: regras de segurança e guia completo de configuração
 
-Arquivos:
-index.html: estrutura e conteúdo
-styles.css: visual e layout
-site.js: interações
-assets/: imagens, logotipo e fonte
+Execução local:
+1. Instale as dependências com: npm install
+2. Opcionalmente, copie .env.example para .env e preencha suas chaves
+3. Inicie o servidor com: npm run dev (acesse http://localhost:3000 e o painel em http://localhost:3000/admin.html)
 
-Não exige instalação de dependências nem compilação.
-Para publicar, envie o conteúdo desta pasta para sua hospedagem.
+Modos de publicação:
+- Vercel / Node.js: faça deploy da raiz do projeto e cadastre as variáveis de ambiente do .env.example no painel da hospedagem (/api/site-config.js entrega a configuração automaticamente).
+- Hospedagem estática comum (sem Node/Vercel): preencha diretamente o arquivo public/site-config.js e envie apenas o conteúdo da pasta public/ para a sua hospedagem.
 
-Exportação do código original do site, commit d97a0982dc3d279fd896acf0a772dd19d9e5fa54. 
-
+Painel administrativo:
+- Acesse admin.html para gerenciar equipamentos, serviços, projetos, classificações e clientes (leads).
+- Consulte o arquivo README-ADMIN.md para o passo a passo de configuração do Firebase e do Cloudinary.

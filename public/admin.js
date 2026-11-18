@@ -1,4 +1,9 @@
-const FIREBASE_VERSION = '11.4.0';
+import {
+  FIREBASE_VERSION,
+  isDemoAllowed,
+  isFirebaseConfigReady,
+  isCloudinaryConfigReady
+} from './config-utils.js';
 
 const SECTIONS = {
   equipment: {
@@ -54,7 +59,7 @@ const state = {
   services: [],
   projects: [],
   leads: [],
-  dirtyLeads: new Set(),
+  dirtyLeads: new Map(),
   editing: {
     sectionKey: 'equipment',
     itemId: null,
@@ -66,25 +71,9 @@ const state = {
 
 const config = window.ACTION_CONFIG || {};
 
-function isFirebaseConfigured() {
-  const fb = config.firebase;
-  if (!fb) return false;
-  return [fb.apiKey, fb.authDomain, fb.projectId, fb.appId].every(
-    (v) => typeof v === 'string' && v.trim() !== '' && v.trim() !== 'COLE_AQUI'
-  );
-}
-
-function isCloudinaryConfigured() {
-  const cl = config.cloudinary;
-  if (!cl) return false;
-  return [cl.cloudName, cl.uploadPreset].every(
-    (v) => typeof v === 'string' && v.trim() !== '' && v.trim() !== 'COLE_AQUI'
-  );
-}
-
 function cloudinaryUrl(photo, width) {
   if (!photo || !photo.url) return '';
-  if (photo.publicId && isCloudinaryConfigured()) {
+  if (photo.publicId && isCloudinaryConfigReady(config)) {
     const idx = photo.url.indexOf('/image/upload/');
     if (idx !== -1) {
       return (
@@ -182,7 +171,10 @@ let demoApi = null;
 
 async function loadFirebase() {
   if (fbApi) return fbApi;
-  if (!isFirebaseConfigured()) {
+  if (!isFirebaseConfigReady(config)) {
+    if (!isDemoAllowed()) {
+      throw new Error('Firebase não configurado.');
+    }
     demoApi = await import('./demo-backend.js');
     fbApi = demoApi;
     return fbApi;
@@ -821,7 +813,11 @@ photoUploadInput.addEventListener('change', async () => {
   if (!files.length) return;
 
   uploadError.textContent = '';
-  const useCloudinary = isCloudinaryConfigured();
+  const useCloudinary = isCloudinaryConfigReady(config);
+  if (!useCloudinary && !isDemoAllowed()) {
+    uploadError.textContent = 'Configuração do Cloudinary pendente. Configure cloudName e uploadPreset antes de enviar fotos.';
+    return;
+  }
 
   const allowedTypes = new Set(['image/jpeg', 'image/png', 'image/webp']);
   const allowedExt = /\.(jpe?g|png|webp)$/i;
@@ -947,6 +943,39 @@ const leadStatusFilter = document.querySelector('#lead-status-filter');
 const leadsListEl = document.querySelector('#leads-list');
 const leadsSummaryEl = document.querySelector('#leads-summary');
 const leadsNewCountEl = document.querySelector('#leads-new-count');
+const refreshLeadsBtn = document.querySelector('#refresh-leads-btn');
+const leadsRefreshStatus = document.querySelector('#leads-refresh-status');
+
+function sortLeadsNewestFirst(docs) {
+  return docs
+    .map((d) => ({ id: d.id, ...d.data() }))
+    .sort((a, b) => {
+      const ta = a.createdAt?.toMillis ? a.createdAt.toMillis() : 0;
+      const tb = b.createdAt?.toMillis ? b.createdAt.toMillis() : 0;
+      return tb - ta;
+    });
+}
+
+async function refreshLeads({ showSuccess = true } = {}) {
+  const { collection, getDocs } = fbApi;
+  const leadsSnap = await getDocs(collection(state.db, 'leads'));
+  state.leads = sortLeadsNewestFirst(leadsSnap.docs);
+
+  const existingIds = new Set(state.leads.map((l) => l.id));
+  for (const id of state.dirtyLeads.keys()) {
+    if (!existingIds.has(id)) state.dirtyLeads.delete(id);
+  }
+
+  renderLeadsPanel();
+
+  if (state.dirtyLeads.size > 0) {
+    leadsRefreshStatus.textContent = 'Lista atualizada. Suas alterações não salvas foram mantidas.';
+    leadsRefreshStatus.classList.remove('is-error');
+  } else if (showSuccess) {
+    leadsRefreshStatus.textContent = 'Lista de clientes atualizada.';
+    leadsRefreshStatus.classList.remove('is-error');
+  }
+}
 
 function formatDateTime(ts) {
   if (!ts || !ts.toDate) return 'Data indisponível';
@@ -997,6 +1026,7 @@ function renderLeadsPanel() {
 
   filtered.forEach((lead) => {
     const statusKey = lead.status || 'novo';
+    const draft = state.dirtyLeads.get(lead.id);
     const e164 = String(lead.telefoneE164 || '').replace(/\D/g, '');
 
     const head = el('div', { className: 'admin-lead-head' }, [
@@ -1046,21 +1076,30 @@ function renderLeadsPanel() {
       el('option', { value: 'fechado', textContent: 'Fechado' }),
       el('option', { value: 'descartado', textContent: 'Descartado' })
     ]);
-    statusSelect.value = statusKey;
+    statusSelect.value = draft ? draft.status : statusKey;
 
     const noteArea = el('textarea', {
       rows: '2',
       maxlength: '2000',
       placeholder: 'Anotações internas sobre negociação, diária ou retorno'
     });
-    noteArea.value = lead.observacaoInterna || '';
+    noteArea.value = draft ? draft.observacaoInterna : (lead.observacaoInterna || '');
 
     const saveBtn = el('button', { type: 'button', className: 'button button-outline admin-btn-sm', textContent: 'Salvar' });
     const delBtn = el('button', { type: 'button', className: 'admin-icon-btn is-danger', textContent: 'Excluir' });
 
-    const markDirty = () => state.dirtyLeads.add(lead.id);
-    statusSelect.addEventListener('change', markDirty);
-    noteArea.addEventListener('input', markDirty);
+    const syncDirty = () => {
+      if (statusSelect.value === statusKey && noteArea.value === (lead.observacaoInterna || '')) {
+        state.dirtyLeads.delete(lead.id);
+      } else {
+        state.dirtyLeads.set(lead.id, {
+          status: statusSelect.value,
+          observacaoInterna: noteArea.value
+        });
+      }
+    };
+    statusSelect.addEventListener('change', syncDirty);
+    noteArea.addEventListener('input', syncDirty);
 
     saveBtn.addEventListener('click', async () => {
       saveBtn.disabled = true;
@@ -1111,6 +1150,22 @@ function renderLeadsPanel() {
 
 leadSearchInput.addEventListener('input', renderLeadsPanel);
 leadStatusFilter.addEventListener('change', renderLeadsPanel);
+
+refreshLeadsBtn.addEventListener('click', async () => {
+  refreshLeadsBtn.disabled = true;
+  refreshLeadsBtn.textContent = 'Atualizando...';
+  leadsRefreshStatus.textContent = 'Atualizando clientes...';
+  leadsRefreshStatus.classList.remove('is-error');
+  try {
+    await refreshLeads({ showSuccess: true });
+  } catch (err) {
+    leadsRefreshStatus.textContent = 'Erro ao atualizar clientes: ' + (err.message || 'tente novamente.');
+    leadsRefreshStatus.classList.add('is-error');
+  } finally {
+    refreshLeadsBtn.textContent = 'Atualizar';
+    refreshLeadsBtn.disabled = false;
+  }
+});
 
 document.querySelector('#export-csv-btn').addEventListener('click', () => {
   const rows = getFilteredLeads();
@@ -1183,6 +1238,20 @@ async function activateTab(tabKey) {
     const panel = document.getElementById(btn.getAttribute('aria-controls'));
     if (panel) panel.hidden = !isCurrent;
   });
+
+  if (tabKey === 'leads' && state.db) {
+    leadsRefreshStatus.textContent = 'Atualizando clientes...';
+    leadsRefreshStatus.classList.remove('is-error');
+    try {
+      await refreshLeads({ showSuccess: false });
+      if (state.dirtyLeads.size === 0) {
+        leadsRefreshStatus.textContent = '';
+      }
+    } catch (err) {
+      leadsRefreshStatus.textContent = 'Erro ao atualizar clientes: ' + (err.message || 'tente novamente.');
+      leadsRefreshStatus.classList.add('is-error');
+    }
+  }
 }
 
 tabButtons.forEach((btn, idx) => {
@@ -1456,8 +1525,18 @@ function renderDemoModeNotices() {
 }
 
 async function bootstrap() {
-  const realFirebase = isFirebaseConfigured();
-  if (!realFirebase) {
+  const realFirebase = isFirebaseConfigReady(config);
+  const useDemo = !realFirebase && isDemoAllowed();
+
+  if (!realFirebase && !useDemo) {
+    configWarning.hidden = false;
+    loginForm.querySelectorAll('input, button').forEach((node) => {
+      node.disabled = true;
+    });
+    return;
+  }
+
+  if (useDemo) {
     renderDemoModeNotices();
   }
 

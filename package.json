@@ -6,8 +6,8 @@
   "scripts": {
     "dev": "node server.js",
     "start": "node server.js",
-    "build": "node --check server.js && node --check public/site.js && node --check public/public-data.js && node --check public/admin.js && node --check public/demo-backend.js && node --check public-config.js && node --check api/site-config.js",
-    "lint": "node --check server.js && node --check public/site.js && node --check public/public-data.js && node --check public/admin.js && node --check public/demo-backend.js && node --check public-config.js && node --check api/site-config.js"
+    "build": "node --check server.js && node --check public/site-config.js && node --check public/config-utils.js && node --check public/site.js && node --check public/public-data.js && node --check public/admin.js && node --check public/demo-backend.js && node --check public-config.js && node --check api/site-config.js",
+    "lint": "node --check server.js && node --check public/site-config.js && node --check public/config-utils.js && node --check public/site.js && node --check public/public-data.js && node --check public/admin.js && node --check public/demo-backend.js && node --check public-config.js && node --check api/site-config.js"
   },
   "dependencies": {
     "express": "^4.21.2"

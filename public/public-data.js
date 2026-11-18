@@ -1,11 +1,4 @@
-const FIREBASE_VERSION = '11.4.0';
-
-function isConfigReady(config) {
-  if (!config || !config.firebase) return false;
-  const fb = config.firebase;
-  const required = [fb.apiKey, fb.authDomain, fb.projectId, fb.appId];
-  return required.every((val) => typeof val === 'string' && val.trim() !== '' && val.trim() !== 'COLE_AQUI');
-}
+import { FIREBASE_VERSION, isDemoAllowed, isFirebaseConfigReady } from './config-utils.js';
 
 function sortByOrder(items) {
   return [...items].sort((a, b) => (Number(a.order) || 0) - (Number(b.order) || 0));
@@ -20,7 +13,11 @@ function waitForActionSite() {
 
 async function initPublicData() {
   const config = window.ACTION_CONFIG;
-  const useRealFirebase = isConfigReady(config);
+  const useRealFirebase = isFirebaseConfigReady(config);
+
+  if (!useRealFirebase && !isDemoAllowed()) {
+    return;
+  }
 
   try {
     let initializeApp;

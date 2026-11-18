@@ -2,7 +2,7 @@
 
 Este documento explica passo a passo como ativar o banco de dados (Firebase Firestore), o login administrativo (Firebase Authentication) e o envio de fotos (Cloudinary) sem precisar de servidor próprio.
 
-> Enquanto as variáveis do Firebase no `.env` estiverem com os valores `COLE_AQUI`, o site público continua funcionando normalmente com o conteúdo estático atual, sem erros.
+> Enquanto o Firebase não estiver configurado, o catálogo estático continua funcionando normalmente no site público, **mas os pedidos de orçamento NÃO são gravados** (apenas os botões de WhatsApp, Instagram e copiar mensagem funcionam). Em `localhost`, há um modo de teste local automático em `localStorage`; fora de `localhost`, o painel `admin.html` permanece bloqueado até a configuração ser feita.
 
 ---
 
@@ -89,9 +89,13 @@ O envio de fotos acontece diretamente do navegador para o Cloudinary usando um *
 
 ---
 
-## 7. Configurar as variáveis de ambiente
+## 7. Configurar as credenciais e publicar (dois modos)
 
-Copie `.env.example` para `.env` na raiz do projeto e preencha as variáveis abaixo com os valores do Firebase e Cloudinary:
+Você pode publicar o site de duas formas, dependendo da sua hospedagem:
+
+### Modo A: Vercel ou Node.js com variáveis de ambiente (recomendado)
+
+1. Localmente, copie `.env.example` para `.env` na raiz do projeto e preencha as variáveis abaixo:
 
 ```dotenv
 FIREBASE_API_KEY=SUA_API_KEY
@@ -110,19 +114,21 @@ PHONE_DISPLAY=(21) 99999-9999
 INSTAGRAM_URL=https://www.instagram.com/actionn.film/
 ```
 
-O servidor carrega o `.env` e disponibiliza no navegador apenas os campos públicos necessários. Para iniciar localmente, use `npm run dev`. Em produção, configure as mesmas variáveis no painel da hospedagem.
+2. Para testar localmente, execute `npm install` e `npm run dev`. O servidor carrega o `.env` e serve `/api/site-config.js`.
+3. Para publicar na Vercel:
+   - Importe o repositório na Vercel com a raiz do projeto como **Root Directory**.
+   - Em **Settings → Environment Variables**, cadastre as variáveis do `.env.example`.
+   - Habilite para os ambientes desejados (**Production**, **Preview** e/ou **Development**) e faça o deploy.
+   - O arquivo `.env` local é ignorado pelo Git. A configuração pública é servida pela função `/api/site-config.js`, e os arquivos em `public/` são servidos pela CDN da Vercel.
 
-> Nunca coloque `CLOUDINARY_API_SECRET`, senhas ou outras chaves privadas no `.env` usado pelo site ou em qualquer arquivo público. O envio direto do navegador requer um Upload Preset configurado como **Unsigned**.
+### Modo B: Hospedagem estática comum (sem Node/Vercel)
 
-### Publicar na Vercel
+Se a sua hospedagem serve apenas arquivos estáticos (sem a rota `/api/site-config.js`):
 
-1. Importe o repositório na Vercel com a raiz do projeto como **Root Directory**.
-2. Em **Settings → Environment Variables**, cadastre as variáveis `FIREBASE_API_KEY`, `FIREBASE_AUTH_DOMAIN`, `FIREBASE_PROJECT_ID`, `FIREBASE_STORAGE_BUCKET`, `FIREBASE_MESSAGING_SENDER_ID`, `FIREBASE_APP_ID`, `FIREBASE_MEASUREMENT_ID`, `CLOUDINARY_CLOUD_NAME` e `CLOUDINARY_UPLOAD_PRESET`. Adicione também as variáveis de telefone e Instagram se quiser personalizá-los.
-3. Habilite as variáveis para os ambientes desejados (**Production**, **Preview** e/ou **Development**) e faça um novo deploy.
+1. Abra o arquivo `public/site-config.js` e substitua os valores `COLE_AQUI` pelas suas credenciais do Firebase, Cloudinary e telefone da empresa.
+2. Envie **todo o conteúdo da pasta `public/`** para a raiz do seu servidor/hospedagem (a requisição para `/api/site-config.js` dará 404 na rede, mas o site usará normalmente o `site-config.js` carregado antes dele, sem erros).
 
-O arquivo `.env` local é ignorado pelo Git e não é enviado à Vercel. A configuração pública é servida pela função `/api/site-config.js`.
-
-As páginas, folhas de estilo, scripts e imagens do site ficam em `public/`, diretório servido pela CDN da Vercel. Mantenha os arquivos estáticos nesse diretório para evitar que sejam respondidos pela função Express.
+> **Segurança das chaves:** `apiKey` e `appId` do Firebase são identificadores públicos do projeto Web por design (visíveis no navegador de qualquer app Firebase). A proteção real dos dados e do painel vem das **regras de segurança do Firestore (`firestore.rules`)**, do login via **Firebase Authentication** e da lista **`admins/{uid}`**. Nunca coloque `CLOUDINARY_API_SECRET`, chaves de serviço ou `GEMINI_API_KEY` em variáveis públicas nem em `public/site-config.js`.
 
 ---
 

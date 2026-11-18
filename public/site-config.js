@@ -5,7 +5,8 @@ window.ACTION_CONFIG = {
     projectId: 'COLE_AQUI',
     storageBucket: 'COLE_AQUI',
     messagingSenderId: 'COLE_AQUI',
-    appId: 'COLE_AQUI'
+    appId: 'COLE_AQUI',
+    measurementId: 'COLE_AQUI'
   },
   cloudinary: {
     cloudName: 'COLE_AQUI',

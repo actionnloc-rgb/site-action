@@ -10,6 +10,7 @@
   <link rel="preload" href="assets/inter.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="styles.css">
   <link rel="stylesheet" href="admin.css">
+  <script src="site-config.js"></script>
   <script src="/api/site-config.js"></script>
   <script type="module" src="admin.js"></script>
 </head>
@@ -39,7 +40,7 @@
         <p class="admin-muted">Acesse com o e-mail e senha cadastrados no Firebase Authentication.</p>
 
         <div class="admin-alert admin-alert-warn" id="config-warning" hidden role="status">
-          <strong>Configuração pendente:</strong> configure as variáveis de ambiente do Firebase e Cloudinary na hospedagem antes de entrar. Consulte o <code>README-ADMIN.md</code>.
+          <strong>Configuração pendente:</strong> configure as variáveis de ambiente do Firebase e Cloudinary na hospedagem. Consulte o <code>README-ADMIN.md</code>.
         </div>
 
         <form class="admin-form" id="login-form">
@@ -90,8 +91,12 @@
             <h2>Clientes e Orçamentos</h2>
             <p class="admin-muted" id="leads-summary"></p>
           </div>
-          <button type="button" class="button button-outline admin-btn-sm" id="export-csv-btn">Exportar CSV <span aria-hidden="true">↓</span></button>
+          <div class="admin-header-actions">
+            <button type="button" class="button button-outline admin-btn-sm" id="refresh-leads-btn">Atualizar</button>
+            <button type="button" class="button button-outline admin-btn-sm" id="export-csv-btn">Exportar CSV <span aria-hidden="true">↓</span></button>
+          </div>
         </div>
+        <p class="admin-status-msg" id="leads-refresh-status" role="status" aria-live="polite"></p>
 
         <div class="admin-leads-filters">
           <label class="admin-filter-field">Buscar
