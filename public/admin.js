@@ -82,7 +82,7 @@ function cloudinaryUrl(photo, width) {
         photo.url.slice(idx + '/image/upload/'.length)
       );
     }
-    return `https://res.cloudinary.com/${encodeURIComponent(config.cloudinary.cloudName)}/image/upload/f_auto,q_auto,w_${width}/${photo.publicId}`;
+    return `https://res.cloudinary.com/${encodeURIComponent(config.cloudinary.cloudName.trim())}/image/upload/f_auto,q_auto,w_${width}/${photo.publicId}`;
   }
   return photo.url;
 }
@@ -96,6 +96,19 @@ function slugify(value) {
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
     .slice(0, 60) || 'categoria';
+}
+
+function buildUniqueCategorySlug(rawValue, catType) {
+  const base = slugify(rawValue);
+  const used = new Set(
+    state.categories
+      .filter((c) => c.type === catType)
+      .map((c) => String(c.slug || '').toLowerCase())
+  );
+  if (!used.has(base)) return base;
+  let idx = 2;
+  while (used.has(`${base}-${idx}`)) idx += 1;
+  return `${base}-${idx}`;
 }
 
 function sortByOrder(list) {
@@ -305,7 +318,7 @@ function renderCatalogPanel(sectionKey) {
     e.preventDefault();
     const name = nameInput.value.trim();
     if (!name) return;
-    const slug = slugify(slugInput.value.trim() || name);
+    const slug = buildUniqueCategorySlug(slugInput.value.trim() || name, cfg.catType);
     createBtn.disabled = true;
     catStatus.textContent = 'Salvando...';
     catStatus.classList.remove('is-error');
@@ -517,8 +530,11 @@ function renderCatalogPanel(sectionKey) {
   panel.append(list);
 }
 
+let isReordering = false;
+
 async function swapOrder(collectionName, list, indexA, indexB, reopenCats = false, sectionKey = null) {
-  if (indexB < 0 || indexB >= list.length) return;
+  if (isReordering || indexB < 0 || indexB >= list.length) return;
+  isReordering = true;
   try {
     const { doc, writeBatch } = fbApi;
     const batch = writeBatch(state.db);
@@ -538,12 +554,15 @@ async function swapOrder(collectionName, list, indexA, indexB, reopenCats = fals
     }
   } catch (err) {
     showToast('Erro ao reordenar: ' + err.message, true);
+  } finally {
+    isReordering = false;
   }
 }
 
 // ===== Item Dialog (Create / Edit) =====
 const itemDialog = document.querySelector('#item-dialog');
 const itemForm = document.querySelector('#item-form');
+itemForm.noValidate = true;
 const fieldTitle = document.querySelector('#field-title');
 const fieldSubtitle = document.querySelector('#field-subtitle');
 const fieldCategory = document.querySelector('#field-category');
@@ -564,6 +583,7 @@ const itemSaveBtn = document.querySelector('#item-save-btn');
 const inlineCategoryBox = document.querySelector('#inline-category-box');
 const inlineCategoryName = document.querySelector('#inline-category-name');
 const inlineCategoryStatus = document.querySelector('#inline-category-status');
+const saveInlineCategoryBtn = document.querySelector('#save-inline-category');
 
 function populateCategorySelect(sectionKey, selectedId = '') {
   const cfg = SECTIONS[sectionKey];
@@ -584,7 +604,8 @@ function populateCategorySelect(sectionKey, selectedId = '') {
     fieldCategory.append(el('option', { value: cat.id, textContent: cat.name }));
   });
 
-  if (selectedId) {
+  const hasSelected = Boolean(selectedId && cats.some((cat) => cat.id === selectedId));
+  if (hasSelected) {
     fieldCategory.value = selectedId;
   } else if (cfg.categoryRequired && cats.length > 0) {
     fieldCategory.value = cats[0].id;
@@ -745,42 +766,64 @@ document.querySelector('#cancel-inline-category').addEventListener('click', () =
   inlineCategoryStatus.textContent = '';
 });
 
-document.querySelector('#save-inline-category').addEventListener('click', async () => {
+inlineCategoryName.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    saveInlineCategoryBtn.click();
+  }
+});
+
+saveInlineCategoryBtn.addEventListener('click', async () => {
   const name = inlineCategoryName.value.trim();
   if (!name) {
     inlineCategoryStatus.textContent = 'Informe o nome da classificação.';
     inlineCategoryStatus.classList.add('is-error');
+    inlineCategoryName.focus();
     return;
   }
   const cfg = SECTIONS[state.editing.sectionKey];
   const existing = getCategoriesForType(cfg.catType);
   const maxOrder = existing.reduce((acc, c) => Math.max(acc, Number(c.order) || 0), 0);
+  const slug = buildUniqueCategorySlug(name, cfg.catType);
+
+  saveInlineCategoryBtn.disabled = true;
+  inlineCategoryStatus.textContent = 'Criando...';
+  inlineCategoryStatus.classList.remove('is-error');
   try {
     const { addDoc, collection } = fbApi;
     const ref = await addDoc(collection(state.db, 'categories'), {
       type: cfg.catType,
       name,
-      slug: slugify(name),
+      slug,
       order: maxOrder + 1
     });
-    state.categories.push({ id: ref.id, type: cfg.catType, name, slug: slugify(name), order: maxOrder + 1 });
+    state.categories = sortByOrder([
+      ...state.categories,
+      { id: ref.id, type: cfg.catType, name, slug, order: maxOrder + 1 }
+    ]);
     populateCategorySelect(state.editing.sectionKey, ref.id);
+    renderCatalogPanel(state.editing.sectionKey);
     inlineCategoryBox.hidden = true;
     inlineCategoryName.value = '';
+    inlineCategoryStatus.textContent = '';
+    itemFormStatus.textContent = '';
+    itemFormStatus.classList.remove('is-error');
     state.editing.dirty = true;
     showToast(`Classificação "${name}" criada.`);
   } catch (err) {
     inlineCategoryStatus.textContent = 'Erro ao criar: ' + err.message;
     inlineCategoryStatus.classList.add('is-error');
+  } finally {
+    saveInlineCategoryBtn.disabled = false;
   }
 });
 
 function uploadFileToCloudinary(file, folder, onProgress) {
   return new Promise((resolve, reject) => {
-    const url = `https://api.cloudinary.com/v1_1/${encodeURIComponent(config.cloudinary.cloudName)}/image/upload`;
+    const url = `https://api.cloudinary.com/v1_1/${encodeURIComponent(config.cloudinary.cloudName.trim())}/image/upload`;
     const formData = new FormData();
     formData.append('file', file);
-    formData.append('upload_preset', config.cloudinary.uploadPreset);
+    formData.append('upload_preset', config.cloudinary.uploadPreset.trim());
     formData.append('folder', folder);
 
     const xhr = new XMLHttpRequest();
@@ -880,11 +923,18 @@ itemForm.addEventListener('submit', async (e) => {
   if (!title) {
     itemFormStatus.textContent = 'Informe o título.';
     itemFormStatus.classList.add('is-error');
+    fieldTitle.focus();
     return;
   }
   if (cfg.categoryRequired && !categoryId) {
-    itemFormStatus.textContent = 'Selecione ou crie uma classificação.';
+    itemFormStatus.textContent = 'Selecione ou crie uma classificação antes de salvar.';
     itemFormStatus.classList.add('is-error');
+    if (getCategoriesForType(cfg.catType).length === 0) {
+      inlineCategoryBox.hidden = false;
+      inlineCategoryName.focus();
+    } else {
+      fieldCategory.focus();
+    }
     return;
   }
 
@@ -892,6 +942,7 @@ itemForm.addEventListener('submit', async (e) => {
   itemFormStatus.textContent = 'Salvando...';
   itemFormStatus.classList.remove('is-error');
 
+  let saved = false;
   try {
     const { addDoc, collection, doc, updateDoc, serverTimestamp } = fbApi;
     const payload = {
@@ -900,11 +951,13 @@ itemForm.addEventListener('submit', async (e) => {
       categoryId,
       description: fieldDescription.value.trim(),
       notes: fieldNotes.value.trim(),
-      photos: state.editing.photos.map((p) => ({
-        url: p.url,
-        publicId: p.publicId || '',
-        caption: (p.caption || '').trim()
-      })),
+      photos: state.editing.photos
+        .filter((p) => p && typeof p.url === 'string' && p.url.trim() !== '')
+        .map((p) => ({
+          url: p.url.trim(),
+          publicId: (p.publicId || '').trim(),
+          caption: (p.caption || '').trim()
+        })),
       published: fieldPublished.checked,
       updatedAt: serverTimestamp()
     };
@@ -926,14 +979,22 @@ itemForm.addEventListener('submit', async (e) => {
       showToast(`${cfg.singular} "${title}" criado.`);
     }
 
+    saved = true;
     state.editing.dirty = false;
     itemDialog.close();
-    await fetchAllData();
   } catch (err) {
     itemFormStatus.textContent = 'Erro ao salvar: ' + (err.message || 'verifique permissões.');
     itemFormStatus.classList.add('is-error');
   } finally {
     itemSaveBtn.disabled = false;
+  }
+
+  if (saved) {
+    try {
+      await fetchAllData();
+    } catch (err) {
+      showToast('Item salvo, mas falhou ao atualizar a lista: ' + (err.message || 'recarregue a página.'), true);
+    }
   }
 });
 
@@ -1573,7 +1634,11 @@ async function bootstrap() {
         authView.hidden = true;
         adminView.hidden = false;
         userBar.hidden = false;
-        await fetchAllData();
+        try {
+          await fetchAllData();
+        } catch (loadErr) {
+          showToast('Erro ao carregar dados do painel: ' + (loadErr.message || 'tente novamente.'), true);
+        }
       } catch (err) {
         authStatus.textContent = 'Erro ao verificar acesso: ' + (err.message || 'tente novamente.');
         authStatus.classList.add('is-error');

@@ -12,15 +12,20 @@ const equipmentCatalog = new Map();
 let servicesCatalog = [];
 let projectsCatalog = [];
 let leadSaver = null;
+let leadInitError = '';
+let leadInitDone = false;
+let resolveLeadInit = null;
+const leadInitPromise = new Promise((resolve) => {
+  resolveLeadInit = resolve;
+});
+
+function hasRealConfigValue(val) {
+  return typeof val === 'string' && val.trim() !== '' && val.trim() !== 'COLE_AQUI';
+}
 
 function isCloudinaryReady() {
   const cl = config.cloudinary;
-  return Boolean(
-    cl &&
-    typeof cl.cloudName === 'string' &&
-    cl.cloudName.trim() !== '' &&
-    cl.cloudName.trim() !== 'COLE_AQUI'
-  );
+  return Boolean(cl && hasRealConfigValue(cl.cloudName));
 }
 
 function cloudinaryUrl(photo, width) {
@@ -34,13 +39,14 @@ function cloudinaryUrl(photo, width) {
         photo.url.slice(idx + '/image/upload/'.length)
       );
     }
-    return `https://res.cloudinary.com/${encodeURIComponent(config.cloudinary.cloudName)}/image/upload/f_auto,q_auto,w_${width}/${photo.publicId}`;
+    return `https://res.cloudinary.com/${encodeURIComponent(config.cloudinary.cloudName.trim())}/image/upload/f_auto,q_auto,w_${width}/${photo.publicId}`;
   }
   return photo.url;
 }
 
 function getWhatsappDigits() {
-  const digits = String(config.whatsappNumber || '5521999999999').replace(/\D/g, '');
+  const raw = hasRealConfigValue(config.whatsappNumber) ? config.whatsappNumber : '5521999999999';
+  const digits = String(raw).replace(/\D/g, '');
   return digits || '5521999999999';
 }
 
@@ -49,13 +55,14 @@ function applyContactConfig() {
   const waDigits = getWhatsappDigits();
   if (footerPhone) {
     footerPhone.href = 'tel:+' + waDigits;
-    if (config.phoneDisplay) {
-      footerPhone.textContent = config.phoneDisplay;
+    if (hasRealConfigValue(config.phoneDisplay)) {
+      footerPhone.textContent = config.phoneDisplay.trim();
     }
   }
-  if (config.instagramUrl) {
+  if (hasRealConfigValue(config.instagramUrl)) {
+    const igHref = config.instagramUrl.trim();
     document.querySelectorAll('a[href="https://www.instagram.com/actionn.film/"]').forEach((link) => {
-      link.href = config.instagramUrl;
+      link.href = igHref;
     });
   }
 }
@@ -205,9 +212,11 @@ productGrid.addEventListener('click', (event) => {
   const categoryLabel = item ? item.categoryName : product.querySelector('.product-type').textContent;
   const descriptionText = item ? item.description : equipment[key] || '';
   const notesText = item ? item.notes : '';
+  const imgEl = product.querySelector('img');
+  const imgSrc = imgEl ? imgEl.getAttribute('src') : '';
   const photos = item && Array.isArray(item.photos) && item.photos.length
     ? item.photos
-    : [{ url: product.querySelector('img').getAttribute('src'), publicId: '', caption: '' }];
+    : (imgSrc ? [{ url: imgSrc, publicId: '', caption: '' }] : []);
 
   productTitle.textContent = name;
   productCategory.textContent = (categoryLabel || '').toUpperCase();
@@ -307,6 +316,7 @@ if (projectGridEl) {
 }
 
 function renderSelection() {
+  lastSavedLeadSignature = null;
   selection.hidden = selected.size === 0;
   selectedItems.replaceChildren();
   selected.forEach((name) => {
@@ -336,16 +346,48 @@ addProduct.addEventListener('click', () => {
 const quotePreview = document.querySelector('#quote-preview');
 const copyStatus = document.querySelector('#copy-status');
 const whatsappQuoteLink = document.querySelector('#whatsapp-quote');
+const quoteFormStatus = document.querySelector('#quote-form-status');
+const quoteSubmitBtn = document.querySelector('#quote-submit-btn') || quoteForm.querySelector('button[type="submit"]');
 const telInput = quoteForm.elements.telefone;
+
+let isSubmittingQuote = false;
+let lastSavedLeadSignature = null;
+
+function setQuoteFormStatus(message = '', isError = false) {
+  if (!quoteFormStatus) return;
+  quoteFormStatus.textContent = message;
+  quoteFormStatus.classList.toggle('is-error', Boolean(isError));
+  quoteFormStatus.hidden = !message;
+}
+
+function setQuoteLoading(loading) {
+  if (!quoteSubmitBtn) return;
+  quoteSubmitBtn.disabled = loading;
+  if (quoteSubmitBtn.firstChild && quoteSubmitBtn.firstChild.nodeType === Node.TEXT_NODE) {
+    quoteSubmitBtn.firstChild.textContent = loading ? 'Registrando pedido... ' : 'Preparar mensagem ';
+  } else {
+    quoteSubmitBtn.textContent = loading ? 'Registrando pedido...' : 'Preparar mensagem ↗';
+  }
+}
 
 if (telInput) {
   telInput.addEventListener('input', () => telInput.setCustomValidity(''));
 }
 
+quoteForm.addEventListener('input', () => {
+  lastSavedLeadSignature = null;
+  if (quoteFormStatus && quoteFormStatus.classList.contains('is-error')) {
+    setQuoteFormStatus('');
+  }
+});
+
 function normalizePhone(raw) {
   let digits = String(raw || '').replace(/\D/g, '');
   if ((digits.length === 12 || digits.length === 13) && digits.startsWith('55')) {
     digits = digits.slice(2);
+  }
+  if ((digits.length === 11 || digits.length === 12) && digits.startsWith('0')) {
+    digits = digits.slice(1);
   }
   if ((digits.length !== 10 && digits.length !== 11) || digits.startsWith('0')) {
     return null;
@@ -353,8 +395,29 @@ function normalizePhone(raw) {
   return '55' + digits;
 }
 
-quoteForm.addEventListener('submit', (event) => {
+async function waitForLeadInit(timeoutMs = 10000) {
+  if (leadInitDone) return;
+  await Promise.race([
+    leadInitPromise,
+    new Promise((resolve) => setTimeout(resolve, timeoutMs))
+  ]);
+}
+
+function formatLeadError(err) {
+  if (err && err.code === 'permission-denied') {
+    return 'Não foi possível registrar seu orçamento (permissão recusada pelo servidor). Confira os campos e tente novamente.';
+  }
+  if (err && err.code === 'unavailable') {
+    return 'Serviço temporariamente indisponível. Verifique sua conexão e tente novamente.';
+  }
+  return 'Não foi possível registrar seu orçamento agora. Verifique sua conexão e tente novamente.';
+}
+
+quoteForm.addEventListener('submit', async (event) => {
   event.preventDefault();
+  if (isSubmittingQuote) return;
+
+  setQuoteFormStatus('');
   const data = new FormData(quoteForm);
   const name = String(data.get('nome') || '').trim();
   const dates = String(data.get('data') || '').trim();
@@ -383,26 +446,56 @@ quoteForm.addEventListener('submit', (event) => {
   lines.push('Sobre o projeto: ' + project);
 
   const message = lines.join('\n\n');
-  quotePreview.value = message;
-  if (whatsappQuoteLink) {
-    whatsappQuoteLink.href = 'https://wa.me/' + getWhatsappDigits() + '?text=' + encodeURIComponent(message);
-  }
-  copyStatus.textContent = '';
-  quoteDialog.showModal();
+  const openPreparedDialog = () => {
+    quotePreview.value = message;
+    if (whatsappQuoteLink) {
+      whatsappQuoteLink.href = 'https://wa.me/' + getWhatsappDigits() + '?text=' + encodeURIComponent(message);
+    }
+    copyStatus.textContent = '';
+    quoteDialog.showModal();
+  };
 
-  if (!honeypot && typeof leadSaver === 'function') {
-    Promise.resolve(
-      leadSaver({
-        nome: name,
-        telefone: phoneRaw,
-        telefoneE164,
-        periodo: dates,
-        projeto: project,
-        equipamentos: [...selected]
-      })
-    ).catch((err) => {
-      console.error('Erro ao gravar lead no Firestore:', err);
-    });
+  if (honeypot) {
+    openPreparedDialog();
+    return;
+  }
+
+  const payload = {
+    nome: name,
+    telefone: phoneRaw,
+    telefoneE164,
+    periodo: dates,
+    projeto: project,
+    equipamentos: [...selected]
+  };
+  const signature = JSON.stringify(payload);
+  if (signature === lastSavedLeadSignature) {
+    openPreparedDialog();
+    return;
+  }
+
+  isSubmittingQuote = true;
+  setQuoteLoading(true);
+  try {
+    await waitForLeadInit();
+    if (typeof leadSaver !== 'function') {
+      setQuoteFormStatus(
+        leadInitError || 'Não foi possível conectar ao sistema de orçamentos. Tente novamente em instantes.',
+        true
+      );
+      return;
+    }
+
+    await leadSaver(payload);
+    lastSavedLeadSignature = signature;
+    setQuoteFormStatus('');
+    openPreparedDialog();
+  } catch (err) {
+    console.error('Erro ao gravar lead no Firestore:', err);
+    setQuoteFormStatus(formatLeadError(err), true);
+  } finally {
+    isSubmittingQuote = false;
+    setQuoteLoading(false);
   }
 });
 
@@ -429,6 +522,16 @@ function buildCategoriesMap(categories) {
 window.ActionSite = {
   setLeadSaver(fn) {
     leadSaver = typeof fn === 'function' ? fn : null;
+    leadInitError = '';
+    leadInitDone = true;
+    if (resolveLeadInit) resolveLeadInit();
+  },
+
+  setLeadInitError(message) {
+    leadSaver = null;
+    leadInitError = typeof message === 'string' ? message : '';
+    leadInitDone = true;
+    if (resolveLeadInit) resolveLeadInit();
   },
 
   setEquipment(items, categories) {
@@ -546,7 +649,7 @@ window.ActionSite = {
       p.textContent = item.subtitle || item.description || '';
       article.append(h3, p);
 
-      const hasPhotos = Array.isArray(item.photos) && item.photos.length > 0;
+      const hasPhotos = Array.isArray(item.photos) && item.photos.some((photo) => photo && photo.url);
       const hasNotes = Boolean(item.notes && item.notes.trim());
       const hasExtraDesc = Boolean(item.subtitle && item.description && item.subtitle.trim() !== item.description.trim());
       if (hasPhotos || hasNotes || hasExtraDesc) {
@@ -591,7 +694,13 @@ window.ActionSite = {
       const h3 = document.createElement('h3');
       h3.textContent = item.title || '';
 
-      const firstPhoto = Array.isArray(item.photos) && item.photos.length > 0 ? item.photos[0] : null;
+      const firstPhoto = Array.isArray(item.photos) ? item.photos.find((photo) => photo && photo.url) : null;
+      const hasDetails = Boolean(
+        (item.subtitle && item.subtitle.trim()) ||
+        (item.description && item.description.trim()) ||
+        (item.notes && item.notes.trim())
+      );
+
       if (firstPhoto && firstPhoto.url) {
         article.classList.add('has-photo');
         const cover = document.createElement('img');
@@ -610,6 +719,15 @@ window.ActionSite = {
         trigger.append(brandSpan, h3);
 
         article.append(cover, trigger);
+      } else if (hasDetails) {
+        article.classList.add('has-details');
+        const trigger = document.createElement('button');
+        trigger.type = 'button';
+        trigger.className = 'project-trigger';
+        trigger.dataset.projectIndex = String(idx);
+        trigger.setAttribute('aria-label', 'Ver detalhes do projeto ' + (item.title || ''));
+        trigger.append(brandSpan, h3);
+        article.append(trigger);
       } else {
         article.append(brandSpan, h3);
       }

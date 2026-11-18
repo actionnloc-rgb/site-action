@@ -2,7 +2,7 @@
 
 Este documento explica passo a passo como ativar o banco de dados (Firebase Firestore), o login administrativo (Firebase Authentication) e o envio de fotos (Cloudinary) sem precisar de servidor próprio.
 
-> Enquanto o Firebase não estiver configurado, o catálogo estático continua funcionando normalmente no site público, **mas os pedidos de orçamento NÃO são gravados** (apenas os botões de WhatsApp, Instagram e copiar mensagem funcionam). Em `localhost`, há um modo de teste local automático em `localStorage`; fora de `localhost`, o painel `admin.html` permanece bloqueado até a configuração ser feita.
+> Enquanto o Firebase não estiver configurado, o catálogo estático continua funcionando normalmente no site público, **mas o envio do formulário de orçamento exibe aviso de erro/configuração pendente e não conclui sem gravar o pedido**. Em `localhost`, há um modo de teste local automático em `localStorage`; fora de `localhost`, o painel `admin.html` permanece bloqueado até a configuração ser feita.
 
 ---
 
