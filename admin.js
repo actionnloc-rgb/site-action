@@ -1395,7 +1395,7 @@ function renderDemoModeNotices() {
   configWarning.replaceChildren(
     el('strong', { textContent: 'Modo de teste local ativo: ' }),
     document.createTextNode('o site ainda está sem Firebase/Cloudinary em '),
-    el('code', { textContent: 'site-config.js' }),
+    el('code', { textContent: 'variáveis de ambiente' }),
     document.createTextNode('. Use o usuário admin de teste abaixo para testar todo o painel antes de publicar:'),
     el('div', { style: 'margin-top:8px;display:grid;gap:4px;' }, [
       el('span', {}, [el('strong', { textContent: 'E-mail: ' }), el('code', { textContent: 'admin@action.test' })]),

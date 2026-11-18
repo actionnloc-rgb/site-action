@@ -104,22 +104,34 @@ FIREBASE_MEASUREMENT_ID=SEU_MEASUREMENT_ID
 
 CLOUDINARY_CLOUD_NAME=SEU_CLOUD_NAME
 CLOUDINARY_UPLOAD_PRESET=SEU_UPLOAD_PRESET_UNSIGNED
+
+WHATSAPP_NUMBER=5521999999999
+PHONE_DISPLAY=(21) 99999-9999
+INSTAGRAM_URL=https://www.instagram.com/actionn.film/
 ```
 
 O servidor carrega o `.env` e disponibiliza no navegador apenas os campos públicos necessários. Para iniciar localmente, use `npm run dev`. Em produção, configure as mesmas variáveis no painel da hospedagem.
 
 > Nunca coloque `CLOUDINARY_API_SECRET`, senhas ou outras chaves privadas no `.env` usado pelo site ou em qualquer arquivo público. O envio direto do navegador requer um Upload Preset configurado como **Unsigned**.
 
+### Publicar na Vercel
+
+1. Importe o repositório na Vercel com a raiz do projeto como **Root Directory**.
+2. Em **Settings → Environment Variables**, cadastre as variáveis `FIREBASE_API_KEY`, `FIREBASE_AUTH_DOMAIN`, `FIREBASE_PROJECT_ID`, `FIREBASE_STORAGE_BUCKET`, `FIREBASE_MESSAGING_SENDER_ID`, `FIREBASE_APP_ID`, `FIREBASE_MEASUREMENT_ID`, `CLOUDINARY_CLOUD_NAME` e `CLOUDINARY_UPLOAD_PRESET`. Adicione também as variáveis de telefone e Instagram se quiser personalizá-los.
+3. Habilite as variáveis para os ambientes desejados (**Production**, **Preview** e/ou **Development**) e faça um novo deploy.
+
+O arquivo `.env` local é ignorado pelo Git e não é enviado à Vercel. A configuração pública é servida pela função `/api/site-config.js`.
+
 ---
 
 ## 8. Como trocar o telefone da empresa depois
 
-`site-config.js` é a **única fonte** do telefone comercial usado no rodapé e no botão "Enviar pelo WhatsApp":
+As variáveis `WHATSAPP_NUMBER` e `PHONE_DISPLAY` definem o telefone comercial usado no rodapé e no botão "Enviar pelo WhatsApp":
 
-1. Abra `site-config.js`.
-2. Altere `whatsappNumber` para o novo número somente com dígitos (`55` + DDD + número, ex.: `'5521988887777'`).
-3. Altere `phoneDisplay` para o formato de exibição desejado (ex.: `'(21) 98888-7777'`).
-4. Salve e envie o arquivo atualizado para a hospedagem.
+1. Localmente, altere as variáveis correspondentes no `.env`; na Vercel, altere-as em **Settings → Environment Variables**.
+2. Defina `WHATSAPP_NUMBER` somente com dígitos (`55` + DDD + número, ex.: `5521988887777`).
+3. Defina `PHONE_DISPLAY` no formato de exibição desejado (ex.: `(21) 98888-7777`).
+4. Faça um novo deploy para aplicar as variáveis na Vercel.
 
 ---
 
