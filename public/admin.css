@@ -150,6 +150,22 @@
   color: #ff8e92;
 }
 
+.admin-load-status {
+  margin-top: 0;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.admin-load-status.is-info {
+  background: #1b1a1c;
+  border-color: #3f3a3c;
+  color: #e4e0e0;
+}
+
 .admin-migration-banner {
   display: flex;
   align-items: center;

@@ -220,34 +220,107 @@ async function verifyIsAdmin(uid) {
   }
 }
 
+function setAdminLoadStatus({ message = '', isError = false, showRetry = false } = {}) {
+  const box = document.querySelector('#admin-load-status');
+  const textEl = document.querySelector('#admin-load-status-text');
+  const retryBtn = document.querySelector('#retry-load-btn');
+  if (!box || !textEl) return;
+  if (!message) {
+    box.hidden = true;
+    textEl.textContent = '';
+    if (retryBtn) retryBtn.hidden = true;
+    return;
+  }
+  textEl.textContent = message;
+  box.classList.toggle('is-info', !isError);
+  if (retryBtn) retryBtn.hidden = !showRetry;
+  box.hidden = false;
+}
+
 async function fetchAllData() {
   const { collection, doc, getDoc, getDocs } = fbApi;
-  const [migSnap, catSnap, eqSnap, svcSnap, projSnap, leadsSnap] = await Promise.all([
-    getDoc(doc(state.db, 'meta', 'migration')),
-    getDocs(collection(state.db, 'categories')),
-    getDocs(collection(state.db, 'equipment')),
-    getDocs(collection(state.db, 'services')),
-    getDocs(collection(state.db, 'projects')),
-    getDocs(collection(state.db, 'leads'))
-  ]);
+  setAdminLoadStatus({ message: 'Carregando dados do painel...', isError: false, showRetry: false });
 
-  const migDone = migSnap.exists() && migSnap.data()?.done === true;
-  document.querySelector('#migration-banner').hidden = migDone;
-
-  state.categories = sortByOrder(catSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
-  state.equipment = sortByOrder(eqSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
-  state.services = sortByOrder(svcSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
-  state.projects = sortByOrder(projSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
-  state.leads = leadsSnap.docs
-    .map((d) => ({ id: d.id, ...d.data() }))
-    .sort((a, b) => {
-      const ta = a.createdAt?.toMillis ? a.createdAt.toMillis() : 0;
-      const tb = b.createdAt?.toMillis ? b.createdAt.toMillis() : 0;
-      return tb - ta;
+  const slowTimer = setTimeout(() => {
+    setAdminLoadStatus({
+      message: 'A conexão com o Firestore está demorando. Verifique sua conexão ou se o Firestore Database foi criado no Firebase Console.',
+      isError: false,
+      showRetry: true
     });
+  }, 10000);
 
-  state.dirtyLeads.clear();
+  let results;
+  try {
+    results = await Promise.allSettled([
+      getDoc(doc(state.db, 'meta', 'migration')),
+      getDocs(collection(state.db, 'categories')),
+      getDocs(collection(state.db, 'equipment')),
+      getDocs(collection(state.db, 'services')),
+      getDocs(collection(state.db, 'projects')),
+      getDocs(collection(state.db, 'leads'))
+    ]);
+  } finally {
+    clearTimeout(slowTimer);
+  }
+
+  const labels = ['migração', 'classificações', 'equipamentos', 'serviços', 'projetos', 'clientes'];
+  const failures = [];
+  results.forEach((res, idx) => {
+    if (res.status === 'rejected') {
+      failures.push({ label: labels[idx], reason: res.reason });
+    }
+  });
+
+  const [migRes, catRes, eqRes, svcRes, projRes, leadsRes] = results;
+
+  if (migRes.status === 'fulfilled') {
+    const migDone = migRes.value.exists() && migRes.value.data()?.done === true;
+    const migBanner = document.querySelector('#migration-banner');
+    if (migBanner) migBanner.hidden = migDone;
+  }
+  if (catRes.status === 'fulfilled') {
+    state.categories = sortByOrder(catRes.value.docs.map((d) => ({ id: d.id, ...d.data() })));
+  }
+  if (eqRes.status === 'fulfilled') {
+    state.equipment = sortByOrder(eqRes.value.docs.map((d) => ({ id: d.id, ...d.data() })));
+  }
+  if (svcRes.status === 'fulfilled') {
+    state.services = sortByOrder(svcRes.value.docs.map((d) => ({ id: d.id, ...d.data() })));
+  }
+  if (projRes.status === 'fulfilled') {
+    state.projects = sortByOrder(projRes.value.docs.map((d) => ({ id: d.id, ...d.data() })));
+  }
+  if (leadsRes.status === 'fulfilled') {
+    state.leads = leadsRes.value.docs
+      .map((d) => ({ id: d.id, ...d.data() }))
+      .sort((a, b) => {
+        const ta = a.createdAt?.toMillis ? a.createdAt.toMillis() : 0;
+        const tb = b.createdAt?.toMillis ? b.createdAt.toMillis() : 0;
+        return tb - ta;
+      });
+    state.dirtyLeads.clear();
+  }
+
   renderAll();
+
+  if (failures.length > 0) {
+    const firstErr = failures[0].reason;
+    const code = firstErr?.code || '';
+    let hint = firstErr?.message || 'erro desconhecido';
+    if (code === 'permission-denied') {
+      hint = 'permissão negada no Firestore (verifique se o arquivo firestore.rules foi publicado e se seu UID está na coleção admins).';
+    } else if (code === 'unavailable' || /offline/i.test(hint)) {
+      hint = 'sem conexão com o Firestore (verifique se o Firestore Database foi criado no Firebase Console e sua internet).';
+    }
+    const failedNames = failures.map((f) => f.label).join(', ');
+    setAdminLoadStatus({
+      message: `Falha ao carregar (${failedNames}): ${hint}`,
+      isError: true,
+      showRetry: true
+    });
+  } else {
+    setAdminLoadStatus({ message: '' });
+  }
 }
 
 function getCategoriesForType(type) {
@@ -1601,13 +1674,35 @@ async function bootstrap() {
     renderDemoModeNotices();
   }
 
+  const retryLoadBtn = document.querySelector('#retry-load-btn');
+  if (retryLoadBtn) {
+    retryLoadBtn.addEventListener('click', () => {
+      if (state.db) fetchAllData();
+    });
+  }
+
   try {
-    const { initializeApp, getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut, getFirestore } =
-      await loadFirebase();
+    const {
+      initializeApp,
+      getAuth,
+      onAuthStateChanged,
+      signInWithEmailAndPassword,
+      signOut,
+      getFirestore,
+      initializeFirestore
+    } = await loadFirebase();
 
     state.app = initializeApp(realFirebase ? config.firebase : {}, 'action-admin');
     state.auth = getAuth(state.app);
-    state.db = getFirestore(state.app);
+    if (realFirebase && typeof initializeFirestore === 'function') {
+      try {
+        state.db = initializeFirestore(state.app, { experimentalAutoDetectLongPolling: true });
+      } catch {
+        state.db = getFirestore(state.app);
+      }
+    } else {
+      state.db = getFirestore(state.app);
+    }
 
     onAuthStateChanged(state.auth, async (user) => {
       if (!user) {
@@ -1634,10 +1729,15 @@ async function bootstrap() {
         authView.hidden = true;
         adminView.hidden = false;
         userBar.hidden = false;
+        renderAll();
         try {
           await fetchAllData();
         } catch (loadErr) {
-          showToast('Erro ao carregar dados do painel: ' + (loadErr.message || 'tente novamente.'), true);
+          setAdminLoadStatus({
+            message: 'Erro ao carregar dados do painel: ' + (loadErr.message || 'tente novamente.'),
+            isError: true,
+            showRetry: true
+          });
         }
       } catch (err) {
         authStatus.textContent = 'Erro ao verificar acesso: ' + (err.message || 'tente novamente.');
