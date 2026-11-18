@@ -1,7 +1,14 @@
 function envOrNull(name) {
   const val = process.env[name];
   if (typeof val !== 'string') return null;
-  const trimmed = val.trim();
+  let trimmed = val.trim();
+  if (
+    trimmed.length >= 2 &&
+    ((trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+      (trimmed.startsWith("'") && trimmed.endsWith("'")))
+  ) {
+    trimmed = trimmed.slice(1, -1).trim();
+  }
   if (!trimmed || trimmed === 'COLE_AQUI') return null;
   return trimmed;
 }
