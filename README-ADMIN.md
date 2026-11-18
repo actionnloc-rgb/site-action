@@ -122,6 +122,8 @@ O servidor carrega o `.env` e disponibiliza no navegador apenas os campos públi
 
 O arquivo `.env` local é ignorado pelo Git e não é enviado à Vercel. A configuração pública é servida pela função `/api/site-config.js`.
 
+As páginas, folhas de estilo, scripts e imagens do site ficam em `public/`, diretório servido pela CDN da Vercel. Mantenha os arquivos estáticos nesse diretório para evitar que sejam respondidos pela função Express.
+
 ---
 
 ## 8. Como trocar o telefone da empresa depois
