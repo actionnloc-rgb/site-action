@@ -974,7 +974,17 @@ photoUploadInput.addEventListener('change', async () => {
       ? 'Envio concluído.'
       : 'Foto adicionada no modo de teste local.';
   } catch (err) {
-    uploadError.textContent = 'Erro no upload: ' + (err.message || 'verifique o upload preset unsigned.');
+    uploadProgress.hidden = true;
+    const rawMsg = err && err.message ? err.message : 'verifique o upload preset unsigned.';
+    if (useCloudinary && /preset|unsigned/i.test(rawMsg)) {
+      const cName = (config.cloudinary?.cloudName || '').trim();
+      const uPreset = (config.cloudinary?.uploadPreset || '').trim();
+      uploadError.textContent =
+        `Erro no upload: ${rawMsg}. Config atual no navegador: cloudName="${cName}", uploadPreset="${uPreset}". ` +
+        'Confirme no Cloudinary (Settings > Upload > Upload presets) se esse preset existe exatamente com esse nome, está em modo Unsigned e foi salvo em public/site-config.js ou nas variáveis de ambiente (com redeploy).';
+    } else {
+      uploadError.textContent = 'Erro no upload: ' + rawMsg;
+    }
   } finally {
     state.editing.uploading = false;
     itemSaveBtn.disabled = false;

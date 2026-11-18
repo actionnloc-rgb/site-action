@@ -28,20 +28,34 @@ function isCloudinaryReady() {
   return Boolean(cl && hasRealConfigValue(cl.cloudName));
 }
 
+function resolveRawPhotoUrl(photo) {
+  if (!photo) return '';
+  if (typeof photo === 'string') return photo.trim();
+  const raw = typeof photo.url === 'string'
+    ? photo.url.trim()
+    : (typeof photo.secure_url === 'string' ? photo.secure_url.trim() : '');
+  if (raw.startsWith('http://res.cloudinary.com/')) {
+    return 'https://' + raw.slice('http://'.length);
+  }
+  return raw;
+}
+
 function cloudinaryUrl(photo, width) {
-  if (!photo || !photo.url) return '';
-  if (photo.publicId && isCloudinaryReady()) {
-    const idx = photo.url.indexOf('/image/upload/');
+  if (!photo) return '';
+  const rawUrl = resolveRawPhotoUrl(photo);
+  const publicId = typeof photo === 'object' && typeof photo.publicId === 'string' ? photo.publicId.trim() : '';
+  if (publicId && isCloudinaryReady()) {
+    const idx = rawUrl.indexOf('/image/upload/');
     if (idx !== -1) {
       return (
-        photo.url.slice(0, idx + '/image/upload/'.length) +
+        rawUrl.slice(0, idx + '/image/upload/'.length) +
         `f_auto,q_auto,w_${width}/` +
-        photo.url.slice(idx + '/image/upload/'.length)
+        rawUrl.slice(idx + '/image/upload/'.length)
       );
     }
-    return `https://res.cloudinary.com/${encodeURIComponent(config.cloudinary.cloudName.trim())}/image/upload/f_auto,q_auto,w_${width}/${photo.publicId}`;
+    return `https://res.cloudinary.com/${encodeURIComponent(config.cloudinary.cloudName.trim())}/image/upload/f_auto,q_auto,w_${width}/${publicId}`;
   }
-  return photo.url;
+  return rawUrl;
 }
 
 function getWhatsappDigits() {
@@ -589,15 +603,40 @@ window.ActionSite = {
 
       const imgWrap = document.createElement('div');
       imgWrap.className = 'product-image';
-      const firstPhoto = Array.isArray(item.photos) && item.photos.length ? item.photos[0] : null;
-      if (firstPhoto && firstPhoto.url) {
+      const photoList = Array.isArray(item.photos) ? item.photos : [];
+      const firstPhoto = photoList.find((p) => Boolean(cloudinaryUrl(p, 720)))
+        || (item.imageUrl ? { url: item.imageUrl } : null)
+        || (item.photoUrl ? { url: item.photoUrl } : null);
+      const imageSrc = firstPhoto ? cloudinaryUrl(firstPhoto, 720) : '';
+      const rawFallbackSrc = firstPhoto ? resolveRawPhotoUrl(firstPhoto) : '';
+
+      const setEmptyImageState = () => {
+        imgWrap.classList.add('is-empty');
+        const label = document.createElement('span');
+        label.className = 'product-image-empty';
+        label.textContent = 'SEM FOTO';
+        imgWrap.replaceChildren(label);
+      };
+
+      if (imageSrc) {
         const img = document.createElement('img');
-        img.src = cloudinaryUrl(firstPhoto, 720);
+        img.src = imageSrc;
         img.width = 720;
         img.height = 470;
         img.alt = '';
-        img.loading = 'lazy';
+        img.decoding = 'async';
+        let triedRawFallback = false;
+        img.addEventListener('error', () => {
+          if (!triedRawFallback && rawFallbackSrc && img.src !== rawFallbackSrc) {
+            triedRawFallback = true;
+            img.src = rawFallbackSrc;
+            return;
+          }
+          setEmptyImageState();
+        });
         imgWrap.append(img);
+      } else {
+        setEmptyImageState();
       }
 
       const info = document.createElement('div');
