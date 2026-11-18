@@ -976,12 +976,20 @@ photoUploadInput.addEventListener('change', async () => {
   } catch (err) {
     uploadProgress.hidden = true;
     const rawMsg = err && err.message ? err.message : 'verifique o upload preset unsigned.';
-    if (useCloudinary && /preset|unsigned/i.test(rawMsg)) {
+    if (useCloudinary) {
       const cName = (config.cloudinary?.cloudName || '').trim();
       const uPreset = (config.cloudinary?.uploadPreset || '').trim();
-      uploadError.textContent =
-        `Erro no upload: ${rawMsg}. Config atual no navegador: cloudName="${cName}", uploadPreset="${uPreset}". ` +
-        'Confirme no Cloudinary (Settings > Upload > Upload presets) se esse preset existe exatamente com esse nome, está em modo Unsigned e foi salvo em public/site-config.js ou nas variáveis de ambiente (com redeploy).';
+      if (/api key|signed/i.test(rawMsg)) {
+        uploadError.textContent =
+          `Erro no upload: ${rawMsg}. Config atual no navegador: cloudName="${cName}", uploadPreset="${uPreset}". ` +
+          'Esse erro ocorre quando o upload preset no Cloudinary ainda está em modo "Signed" (ou não foi salvo após mudar para "Unsigned"). Abra Settings > Upload > Upload presets, confirme Signing mode = Unsigned e clique em Save.';
+      } else if (/preset|unsigned/i.test(rawMsg)) {
+        uploadError.textContent =
+          `Erro no upload: ${rawMsg}. Config atual no navegador: cloudName="${cName}", uploadPreset="${uPreset}". ` +
+          'Confirme no Cloudinary (Settings > Upload > Upload presets) se esse preset existe exatamente com esse nome, está em modo Unsigned e foi salvo em public/site-config.js ou nas variáveis de ambiente (com redeploy).';
+      } else {
+        uploadError.textContent = `Erro no upload: ${rawMsg} (cloudName="${cName}", uploadPreset="${uPreset}").`;
+      }
     } else {
       uploadError.textContent = 'Erro no upload: ' + rawMsg;
     }
