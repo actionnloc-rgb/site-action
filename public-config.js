@@ -20,5 +20,6 @@ export function getPublicConfig() {
 }
 
 export function sendPublicConfig(res) {
-  res.type('application/javascript').send(`window.ACTION_CONFIG = ${JSON.stringify(getPublicConfig())};`);
+  res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+  res.end(`window.ACTION_CONFIG = ${JSON.stringify(getPublicConfig())};`);
 }
