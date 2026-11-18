@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101011">
+  <meta name="robots" content="noindex,nofollow">
+  <title>Admin | ACTION Film Equipment</title>
+  <link rel="icon" href="assets/favicon.png">
+  <link rel="preload" href="assets/inter.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="admin.css">
+  <script src="site-config.js"></script>
+  <script type="module" src="admin.js"></script>
+</head>
+<body class="admin-body">
+  <a class="skip" href="#admin-main">Pular para o conteúdo</a>
+
+  <header class="site-header admin-header">
+    <div class="wrap admin-header-inner">
+      <a href="index.html" class="wordmark" aria-label="ACTION Film Equipment, ir para o site">
+        <img src="assets/action-logo.webp" width="148" height="42" alt="ACTION Film Equipment">
+      </a>
+      <div class="admin-header-actions">
+        <a class="button button-outline admin-btn-sm" href="index.html">Ver site <span aria-hidden="true">↗</span></a>
+        <div class="admin-user-bar" id="admin-user-bar" hidden>
+          <span class="admin-user-email" id="admin-user-email"></span>
+          <button type="button" class="button button-outline admin-btn-sm" id="logout-btn">Sair</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main id="admin-main" class="admin-main">
+    <section class="wrap admin-auth-section" id="auth-view" aria-labelledby="auth-title">
+      <div class="admin-card admin-auth-card">
+        <p class="eyebrow"><span class="rec" aria-hidden="true"></span> ÁREA ADMINISTRATIVA</p>
+        <h1 id="auth-title" class="admin-auth-title">Entrar no painel</h1>
+        <p class="admin-muted">Acesse com o e-mail e senha cadastrados no Firebase Authentication.</p>
+
+        <div class="admin-alert admin-alert-warn" id="config-warning" hidden role="status">
+          <strong>Configuração pendente:</strong> preencha as credenciais do Firebase e Cloudinary no arquivo <code>site-config.js</code> antes de entrar. Consulte o <code>README-ADMIN.md</code>.
+        </div>
+
+        <form class="admin-form" id="login-form">
+          <label>E-mail
+            <input type="email" name="email" autocomplete="email" required placeholder="admin@action.com">
+          </label>
+          <label>Senha
+            <input type="password" name="password" autocomplete="current-password" required placeholder="••••••••">
+          </label>
+          <p class="admin-status-msg" id="auth-status" role="status" aria-live="polite"></p>
+          <button type="submit" class="button button-red" id="login-submit">Entrar <span aria-hidden="true">↗</span></button>
+        </form>
+      </div>
+    </section>
+
+    <section class="wrap admin-dashboard" id="admin-view" hidden>
+      <div class="admin-top-bar">
+        <div>
+          <p class="eyebrow"><span class="rec" aria-hidden="true"></span> PAINEL DE GESTÃO</p>
+          <h1 class="admin-page-title">ACTION Film Equipment</h1>
+        </div>
+        <p class="admin-toast" id="admin-toast" role="status" aria-live="polite"></p>
+      </div>
+
+      <div class="admin-card admin-migration-banner" id="migration-banner" hidden>
+        <div>
+          <p class="eyebrow"><span class="rec" aria-hidden="true"></span> CONFIGURAÇÃO INICIAL</p>
+          <h2>Importar conteúdo atual do site</h2>
+          <p class="admin-muted">O banco de dados ainda não recebeu o catálogo inicial. Importe agora as 3 classificações, 6 equipamentos, 3 serviços e 4 projetos que já aparecem no site.</p>
+        </div>
+        <button type="button" class="button button-red" id="run-migration-btn">Importar conteúdo atual do site <span aria-hidden="true">↗</span></button>
+      </div>
+
+      <div class="admin-tabs" role="tablist" aria-label="Seções do painel">
+        <button type="button" role="tab" id="tab-equipment" aria-controls="panel-equipment" aria-selected="true" tabindex="0" data-tab="equipment">Equipamentos</button>
+        <button type="button" role="tab" id="tab-services" aria-controls="panel-services" aria-selected="false" tabindex="-1" data-tab="services">Serviços</button>
+        <button type="button" role="tab" id="tab-projects" aria-controls="panel-projects" aria-selected="false" tabindex="-1" data-tab="projects">Projetos</button>
+        <button type="button" role="tab" id="tab-leads" aria-controls="panel-leads" aria-selected="false" tabindex="-1" data-tab="leads">Clientes <span class="tab-badge" id="leads-new-count" hidden>0</span></button>
+      </div>
+
+      <section id="panel-equipment" role="tabpanel" aria-labelledby="tab-equipment" class="admin-tabpanel"></section>
+      <section id="panel-services" role="tabpanel" aria-labelledby="tab-services" class="admin-tabpanel" hidden></section>
+      <section id="panel-projects" role="tabpanel" aria-labelledby="tab-projects" class="admin-tabpanel" hidden></section>
+
+      <section id="panel-leads" role="tabpanel" aria-labelledby="tab-leads" class="admin-tabpanel" hidden>
+        <div class="admin-section-head">
+          <div>
+            <h2>Clientes e Orçamentos</h2>
+            <p class="admin-muted" id="leads-summary"></p>
+          </div>
+          <button type="button" class="button button-outline admin-btn-sm" id="export-csv-btn">Exportar CSV <span aria-hidden="true">↓</span></button>
+        </div>
+
+        <div class="admin-leads-filters">
+          <label class="admin-filter-field">Buscar
+            <input type="search" id="lead-search" placeholder="Nome, telefone, projeto ou equipamento...">
+          </label>
+          <label class="admin-filter-field admin-filter-status">Status
+            <select id="lead-status-filter">
+              <option value="all">Todos os status</option>
+              <option value="novo">Novo</option>
+              <option value="em_contato">Em contato</option>
+              <option value="fechado">Fechado</option>
+              <option value="descartado">Descartado</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="admin-leads-list" id="leads-list"></div>
+      </section>
+    </section>
+  </main>
+
+  <dialog class="dialog admin-dialog" id="item-dialog" aria-labelledby="item-dialog-title">
+    <button class="dialog-close" type="button" id="item-dialog-close" aria-label="Fechar formulário">×</button>
+    <div class="dialog-body">
+      <p class="eyebrow" id="item-dialog-eyebrow"></p>
+      <h2 id="item-dialog-title"></h2>
+
+      <form class="admin-form" id="item-form">
+        <div class="admin-form-grid">
+          <label>Título *
+            <input type="text" name="title" id="field-title" required maxlength="140" placeholder="Ex. Nanlite FC-500B">
+          </label>
+          <label>Subtítulo
+            <input type="text" name="subtitle" id="field-subtitle" maxlength="180" placeholder="Ex. LED bicolor">
+          </label>
+        </div>
+
+        <div class="admin-category-row">
+          <label class="admin-category-select-label"><span id="category-label-text">Classificação *</span>
+            <select name="categoryId" id="field-category"></select>
+          </label>
+          <button type="button" class="button button-outline admin-btn-sm" id="toggle-inline-category">+ Nova classificação</button>
+        </div>
+
+        <div class="admin-inline-category" id="inline-category-box" hidden>
+          <label>Nome da nova classificação
+            <input type="text" id="inline-category-name" maxlength="80" placeholder="Ex. Modificadores">
+          </label>
+          <div class="admin-inline-category-actions">
+            <button type="button" class="button button-red admin-btn-sm" id="save-inline-category">Criar</button>
+            <button type="button" class="button button-outline admin-btn-sm" id="cancel-inline-category">Cancelar</button>
+          </div>
+          <p class="admin-status-msg" id="inline-category-status" role="status" aria-live="polite"></p>
+        </div>
+
+        <div class="admin-form-grid" id="project-extra-fields" hidden>
+          <label>Marca / Cliente (aceita quebra de linha)
+            <textarea name="brand" id="field-brand" rows="2" maxlength="100" placeholder="Ex. amazon&#10;creators lab"></textarea>
+          </label>
+          <label>Variante visual da marca
+            <select name="brandVariant" id="field-brand-variant">
+              <option value="">Padrão</option>
+              <option value="netflix">Netflix (vermelho)</option>
+              <option value="amazon">Amazon (compacto)</option>
+            </select>
+          </label>
+        </div>
+
+        <label>Descrição (exibida nos detalhes)
+          <textarea name="description" id="field-description" rows="3" maxlength="2000" placeholder="Descrição do equipamento, serviço ou projeto"></textarea>
+        </label>
+
+        <label>Observações públicas (exibidas no modal quando preenchidas)
+          <textarea name="notes" id="field-notes" rows="2" maxlength="1000" placeholder="Ex. Acompanha case, cabo AC e yoke"></textarea>
+        </label>
+
+        <fieldset class="admin-photos-fieldset">
+          <legend>Fotos</legend>
+          <div class="admin-upload-bar">
+            <label class="button button-outline admin-btn-sm admin-upload-label">
+              Selecionar fotos (JPG, PNG, WebP)
+              <input type="file" id="photo-upload-input" accept="image/jpeg,image/png,image/webp" multiple hidden>
+            </label>
+            <span class="admin-muted admin-upload-hint">Máx. 10 MB por arquivo.</span>
+          </div>
+          <p class="admin-muted admin-cloudinary-note">Remover uma foto aqui apaga apenas a referência no site; a imagem permanece no Cloudinary.</p>
+          <div class="admin-upload-progress" id="upload-progress" hidden role="status" aria-live="polite">
+            <div class="admin-progress-track"><div class="admin-progress-fill" id="upload-progress-fill"></div></div>
+            <span id="upload-progress-text"></span>
+          </div>
+          <p class="admin-status-msg admin-status-error" id="upload-error" role="status" aria-live="polite"></p>
+          <div class="admin-photo-list" id="item-photo-list"></div>
+        </fieldset>
+
+        <label class="admin-checkbox-label">
+          <input type="checkbox" name="published" id="field-published" checked>
+          <span>Visível no site público</span>
+        </label>
+
+        <p class="admin-status-msg" id="item-form-status" role="status" aria-live="polite"></p>
+
+        <div class="admin-dialog-actions">
+          <button type="button" class="button button-outline" id="item-cancel-btn">Cancelar</button>
+          <button type="submit" class="button button-red" id="item-save-btn">Salvar</button>
+        </div>
+      </form>
+    </div>
+  </dialog>
+
+  <dialog class="dialog admin-confirm-dialog" id="confirm-dialog" aria-labelledby="confirm-title">
+    <button class="dialog-close" type="button" id="confirm-close-btn" aria-label="Fechar confirmação">×</button>
+    <div class="dialog-body quote-dialog-body">
+      <h2 id="confirm-title">Confirmar ação</h2>
+      <p id="confirm-message"></p>
+      <div class="dialog-actions">
+        <button type="button" class="button button-outline" id="confirm-cancel-btn">Cancelar</button>
+        <button type="button" class="button button-red" id="confirm-ok-btn">Confirmar</button>
+      </div>
+    </div>
+  </dialog>
+</body>
+</html>

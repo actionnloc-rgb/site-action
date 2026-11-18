@@ -11,4 +11,5 @@ assets/: imagens, logotipo e fonte
 Não exige instalação de dependências nem compilação.
 Para publicar, envie o conteúdo desta pasta para sua hospedagem.
 
-Exportação do código original do site, commit d97a0982dc3d279fd896acf0a772dd19d9e5fa54.
+Exportação do código original do site, commit d97a0982dc3d279fd896acf0a772dd19d9e5fa54. 
+

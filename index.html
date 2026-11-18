@@ -9,7 +9,9 @@
   <link rel="icon" href="assets/favicon.png">
   <link rel="preload" href="assets/inter.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="styles.css">
+  <script src="site-config.js"></script>
   <script src="site.js" defer></script>
+  <script type="module" src="public-data.js"></script>
 </head>
 <body>
   <a class="skip" href="#conteudo">Pular para o conteúdo</a>
@@ -155,6 +157,10 @@
             <label>Seu nome<input name="nome" autocomplete="name" required placeholder="Nome ou produtora"></label>
             <label>Data ou período<input name="data" placeholder="Ex. 12 e 13 de dezembro"></label>
           </div>
+          <label class="form-full">Seu telefone (WhatsApp)<input name="telefone" type="tel" autocomplete="tel" inputmode="tel" required placeholder="(21) 99999-9999"></label>
+          <div class="hp-field" aria-hidden="true">
+            <label>Não preencher<input name="empresa_site" type="text" tabindex="-1" autocomplete="off"></label>
+          </div>
           <label>Sobre o projeto<textarea name="projeto" rows="3" placeholder="Tipo de produção, local e o que você precisa" required></textarea></label>
           <button type="submit" class="button button-red">Preparar mensagem <span aria-hidden="true">↗</span></button>
         </form>
@@ -166,7 +172,14 @@
     <div class="wrap footer-inner">
       <a href="#inicio" class="wordmark" aria-label="ACTION Film Equipment, voltar ao início"><img src="assets/action-logo.webp" width="148" height="42" alt="ACTION Film Equipment"></a>
       <span>Rio de Janeiro, RJ</span>
+      <a class="footer-phone" id="footer-phone" href="tel:+5521999999999">(21) 99999-9999</a>
       <a href="https://www.instagram.com/actionn.film/" target="_blank" rel="noopener noreferrer">Instagram <span aria-hidden="true">↗</span></a>
+    </div>
+    <div class="wrap footer-admin-row">
+      <a class="footer-admin-link" href="admin.html" target="_blank" rel="noopener noreferrer" aria-label="Área administrativa">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        <span>Admin</span>
+      </a>
     </div>
   </footer>
 
@@ -184,13 +197,29 @@
     <button class="dialog-close" type="button" aria-label="Fechar mensagem">×</button>
     <div class="dialog-body quote-dialog-body">
       <h2 id="quote-title">Sua mensagem</h2>
-      <p>Copie o texto e envie pelo Instagram da ACTION.</p>
+      <p>Envie pelo WhatsApp ou copie o texto e envie pelo Instagram da ACTION.</p>
       <textarea id="quote-preview" rows="7" readonly aria-label="Mensagem de orçamento"></textarea>
       <div class="dialog-actions">
-        <button class="button button-red" type="button" id="copy-quote">Copiar mensagem</button>
+        <a class="button button-red" id="whatsapp-quote" href="https://wa.me/5521999999999" target="_blank" rel="noopener noreferrer">Enviar pelo WhatsApp <span aria-hidden="true">↗</span></a>
+        <button class="button button-outline" type="button" id="copy-quote">Copiar mensagem</button>
         <a class="button button-outline" href="https://ig.me/m/actionn.film" target="_blank" rel="noopener noreferrer">Abrir Instagram <span aria-hidden="true">↗</span></a>
       </div>
       <p id="copy-status" role="status"></p>
+    </div>
+  </dialog>
+  <dialog class="dialog" id="detail-dialog" aria-labelledby="detail-title">
+    <button class="dialog-close" type="button" aria-label="Fechar detalhes">×</button>
+    <img class="dialog-image" id="detail-image" alt="" hidden>
+    <div class="dialog-gallery-thumbs" id="detail-thumbs" hidden></div>
+    <p class="dialog-caption" id="detail-caption" hidden></p>
+    <div class="dialog-body">
+      <p id="detail-category" class="eyebrow" hidden></p>
+      <h2 id="detail-title"></h2>
+      <p id="detail-description" hidden></p>
+      <div class="dialog-notes" id="detail-notes-box" hidden>
+        <p class="dialog-notes-title">Observações</p>
+        <p class="dialog-notes-text" id="detail-notes"></p>
+      </div>
     </div>
   </dialog>
 </body>
