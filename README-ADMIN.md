@@ -2,7 +2,7 @@
 
 Este documento explica passo a passo como ativar o banco de dados (Firebase Firestore), o login administrativo (Firebase Authentication) e o envio de fotos (Cloudinary) sem precisar de servidor próprio.
 
-> Enquanto `site-config.js` estiver com os valores `COLE_AQUI`, o site público continua funcionando normalmente com o conteúdo estático atual, sem erros.
+> Enquanto as variáveis do Firebase no `.env` estiverem com os valores `COLE_AQUI`, o site público continua funcionando normalmente com o conteúdo estático atual, sem erros.
 
 ---
 
@@ -13,7 +13,7 @@ Este documento explica passo a passo como ativar o banco de dados (Firebase Fire
 3. Na tela inicial do projeto, clique no ícone da Web (`</>`) para registrar um aplicativo Web:
    - Informe um apelido (ex.: `Site ACTION`).
    - Não é necessário marcar o Firebase Hosting se for hospedar em outro lugar.
-   - Copie o objeto `firebaseConfig` (`apiKey`, `authDomain`, `projectId`, `storageBucket`, `messagingSenderId`, `appId`) — você vai colá-lo no arquivo `site-config.js` na etapa 7.
+   - Copie o objeto `firebaseConfig` (`apiKey`, `authDomain`, `projectId`, `storageBucket`, `messagingSenderId`, `appId`) — você vai colocá-lo nas variáveis do `.env` na etapa 7.
 
 ---
 
@@ -89,31 +89,26 @@ O envio de fotos acontece diretamente do navegador para o Cloudinary usando um *
 
 ---
 
-## 7. Preencher o arquivo `site-config.js`
+## 7. Configurar as variáveis de ambiente
 
-Abra o arquivo `site-config.js` na raiz do projeto e substitua os campos `COLE_AQUI`:
+Copie `.env.example` para `.env` na raiz do projeto e preencha as variáveis abaixo com os valores do Firebase e Cloudinary:
 
-```js
-window.ACTION_CONFIG = {
-  firebase: {
-    apiKey: 'SUA_API_KEY',
-    authDomain: 'SEU_PROJETO.firebaseapp.com',
-    projectId: 'SEU_PROJETO',
-    storageBucket: 'SEU_PROJETO.firebasestorage.app',
-    messagingSenderId: 'SEU_SENDER_ID',
-    appId: 'SEU_APP_ID'
-  },
-  cloudinary: {
-    cloudName: 'SEU_CLOUD_NAME',
-    uploadPreset: 'SEU_UPLOAD_PRESET_UNSIGNED'
-  },
-  whatsappNumber: '5521999999999',
-  phoneDisplay: '(21) 99999-9999',
-  instagramUrl: 'https://www.instagram.com/actionn.film/'
-};
+```dotenv
+FIREBASE_API_KEY=SUA_API_KEY
+FIREBASE_AUTH_DOMAIN=SEU_PROJETO.firebaseapp.com
+FIREBASE_PROJECT_ID=SEU_PROJETO
+FIREBASE_STORAGE_BUCKET=SEU_PROJETO.firebasestorage.app
+FIREBASE_MESSAGING_SENDER_ID=SEU_SENDER_ID
+FIREBASE_APP_ID=SEU_APP_ID
+FIREBASE_MEASUREMENT_ID=SEU_MEASUREMENT_ID
+
+CLOUDINARY_CLOUD_NAME=SEU_CLOUD_NAME
+CLOUDINARY_UPLOAD_PRESET=SEU_UPLOAD_PRESET_UNSIGNED
 ```
 
-> Nunca coloque `GEMINI_API_KEY`, `CLOUDINARY_API_SECRET` ou senhas em `site-config.js` ou em qualquer arquivo público.
+O servidor carrega o `.env` e disponibiliza no navegador apenas os campos públicos necessários. Para iniciar localmente, use `npm run dev`. Em produção, configure as mesmas variáveis no painel da hospedagem.
+
+> Nunca coloque `CLOUDINARY_API_SECRET`, senhas ou outras chaves privadas no `.env` usado pelo site ou em qualquer arquivo público. O envio direto do navegador requer um Upload Preset configurado como **Unsigned**.
 
 ---
 
